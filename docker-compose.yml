@@ -1,0 +1,27 @@
+services:
+  llm-bench:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: llm-bench:latest
+    container_name: llm-bench
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      OLLAMA_URL: http://host.docker.internal:11434
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./prompts:/app/prompts:ro
+      - ./models:/app/models:ro
+      - ./logs:/app/logs
+    command:
+      - "--config"
+      - "/app/config.yaml"
+      - "--prompt-file"
+      - "/app/prompts/prompt.txt"
+      - "--models"
+      - "mistral,qwen2.5"
+      - "--project"
+      - "compose-run"
+      - "--ollama-url"
+      - "http://host.docker.internal:11434"
