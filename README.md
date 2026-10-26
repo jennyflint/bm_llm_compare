@@ -226,20 +226,90 @@ CLI flags → per-model config → global defaults → built-in defaults.
 
 ## Docker
 
+The compose stack bundles its own Ollama service, so nothing has to be installed
+on the host. `llm-bench` talks to `http://ollama:11434` over the compose network,
+and Ollama stores downloaded weights in the local `./models/ollama` directory
+(bind mount), so you can inspect, back up, or move them like ordinary files.
+
 ```bash
-docker compose run --rm llm-bench
+docker compose up -d ollama          # start Ollama
+docker compose run --rm ollama-pull  # download mistral:7b + qwen2.5:7b
+docker compose run --rm llm-bench    # run the benchmark
 ```
 
 The compose file mounts `config.yaml`, `prompts/`, `models/`, and `logs/`, and
-maps `host.docker.internal` so the container can reach Ollama on the host.
+still maps `host.docker.internal` in case you prefer a host-installed Ollama.
 
 ### Complete Docker examples
+
+Start the bundled Ollama and pull the models once:
+
+```bash
+docker compose up -d ollama
+docker compose run --rm ollama-pull
+```
+
+Verify the models are available inside the stack:
+
+```bash
+docker compose exec ollama ollama list
+```
 
 Build the image and run the default compose command:
 
 ```bash
 docker compose build
 docker compose run --rm llm-bench
+```
+
+Pull additional models into `./models/ollama`:
+
+```bash
+docker compose run --rm ollama-pull ollama pull llama3.2:3b
+```
+
+Run against the bundled Ollama with custom flags:
+
+```bash
+docker compose run --rm llm-bench \
+  --config /app/config.yaml \
+  --prompt-file /app/prompts/prompt.txt \
+  --models mistral,qwen2.5 \
+  --ollama-url http://ollama:11434 \
+  --project docker-run \
+  --format json \
+  --no-color
+```
+
+Use a host-installed Ollama instead of the bundled one (skip the `ollama`
+service and point at the host gateway):
+
+```bash
+docker compose run --rm llm-bench \
+  --config /app/config.yaml \
+  --prompt-file /app/prompts/prompt.txt \
+  --models mistral,qwen2.5 \
+  --ollama-url http://host.docker.internal:11434 \
+  --project host-ollama
+```
+
+Stop the stack (weights stay in `./models/ollama`):
+
+```bash
+docker compose down
+```
+
+Remove the downloaded weights:
+
+```bash
+rm -rf ./models/ollama
+```
+
+Inspect what Ollama stored on disk:
+
+```bash
+du -sh ./models/ollama
+ls ./models/ollama/models/blobs | head
 ```
 
 Override the compose command with your own flags (arguments after the service

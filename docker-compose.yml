@@ -1,14 +1,45 @@
 services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./models/ollama:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ollama-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "ollama pull mistral:7b && ollama pull qwen2.5:7b"
+    restart: "no"
+
   llm-bench:
     build:
       context: .
       dockerfile: Dockerfile
     image: llm-bench:latest
     container_name: llm-bench
+    depends_on:
+      ollama:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      OLLAMA_URL: http://host.docker.internal:11434
+      OLLAMA_URL: http://ollama:11434
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./prompts:/app/prompts:ro
@@ -24,4 +55,5 @@ services:
       - "--project"
       - "compose-run"
       - "--ollama-url"
-      - "http://host.docker.internal:11434"
+      - "http://ollama:11434"
+
